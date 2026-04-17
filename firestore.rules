@@ -1,0 +1,68 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+       return request.auth != null;
+    }
+    function isDocOwner() {
+       return isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+    function uidUnchanged() {
+       return !('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid;
+    }
+    function uidNotModified() {
+       return !('userId' in request.resource.data) || request.resource.data.userId == resource.data.userId;
+    }
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+    
+    // Domain Validators
+    function isValidSavedLead(data) {
+      return hasOnlyAllowedFields(['id', 'userId', 'name', 'address', 'phone', 'email', 'website', 'rating', 'reviews', 'status', 'priority', 'createdAt']) &&
+             (!('id' in data) || (data.id is string && data.id.size() < 100)) &&
+             data.userId is string && data.userId.size() > 0 && data.userId.size() < 100 &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 200 &&
+             (!('address' in data) || (data.address is string && data.address.size() < 500)) &&
+             (!('phone' in data) || (data.phone is string && data.phone.size() < 50)) &&
+             (!('email' in data) || (data.email is string && data.email.size() < 200)) &&
+             (!('website' in data) || (data.website is string && data.website.size() < 500)) &&
+             (!('rating' in data) || data.rating is number) &&
+             (!('reviews' in data) || data.reviews is number) &&
+             data.status in ['new', 'contacted', 'converted', 'rejected'] &&
+             (!('priority' in data) || data.priority in ['low', 'medium', 'high', 'none']) &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidSavedIntent(data) {
+      return hasOnlyAllowedFields(['id', 'userId', 'title', 'snippet', 'link', 'source', 'date', 'status', 'priority', 'createdAt']) &&
+             (!('id' in data) || (data.id is string && data.id.size() < 100)) &&
+             data.userId is string && data.userId.size() > 0 && data.userId.size() < 100 &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 500 &&
+             (!('snippet' in data) || (data.snippet is string && data.snippet.size() < 2000)) &&
+             data.link is string && data.link.size() > 0 && data.link.size() < 1000 &&
+             (!('source' in data) || (data.source is string && data.source.size() < 100)) &&
+             (!('date' in data) || (data.date is string && data.date.size() < 100)) &&
+             data.status in ['new', 'contacted', 'converted', 'rejected'] &&
+             (!('priority' in data) || data.priority in ['low', 'medium', 'high', 'none']) &&
+             data.createdAt is timestamp;
+    }
+
+    match /savedLeads/{leadId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidSavedLead(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidSavedLead(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+
+    match /savedIntents/{intentId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidSavedIntent(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidSavedIntent(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "entities": {
+    "SavedLead": {
+      "title": "Saved Lead",
+      "description": "A business lead saved to the CRM",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "The ID of the user who saved this lead" },
+        "name": { "type": "string" },
+        "address": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "website": { "type": "string" },
+        "rating": { "type": "number" },
+        "reviews": { "type": "number" },
+        "status": { "type": "string", "enum": ["new", "contacted", "converted", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "name", "status", "createdAt"]
+    },
+    "SavedIntent": {
+      "title": "Saved Intent Lead",
+      "description": "An intent lead saved to the CRM",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "The ID of the user who saved this lead" },
+        "title": { "type": "string" },
+        "snippet": { "type": "string" },
+        "link": { "type": "string" },
+        "source": { "type": "string" },
+        "date": { "type": "string" },
+        "status": { "type": "string", "enum": ["new", "contacted", "converted", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "link", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/savedLeads/{leadId}": {
+      "schema": { "$ref": "#/entities/SavedLead" },
+      "description": "Collection of saved business leads"
+    },
+    "/savedIntents/{intentId}": {
+      "schema": { "$ref": "#/entities/SavedIntent" },
+      "description": "Collection of saved intent leads"
+    }
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "name": "LeadScout AI",
+  "description": "AI-powered lead generation tool that scrapes search results for local services and organizes them into a structured sheet.",
+  "requestFramePermissions": []
+}
