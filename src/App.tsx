@@ -73,6 +73,7 @@ export default function App() {
 
   // Intent Search State
   const [intentType, setIntentType] = useState('recommendation');
+  const [dateRange, setDateRange] = useState('qdr:m');
   const [platforms, setPlatforms] = useState<string[]>(['reddit.com', 'facebook.com', 'quora.com', 'nextdoor.com']);
 
   // CRM State
@@ -292,6 +293,14 @@ export default function App() {
     }, duration);
   };
 
+  const handleReset = () => {
+    setKeywords('');
+    setTargetAudience('');
+    setLocation('');
+    setRadius('10');
+    setError(null);
+  };
+
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!keywords) return;
@@ -364,7 +373,8 @@ export default function App() {
           targetAudience,
           location,
           intentType,
-          platforms
+          platforms,
+          dateRange
         });
 
         const rawData = response.data;
@@ -654,6 +664,14 @@ export default function App() {
                   {loading ? <Loader2 className="animate-spin" size={16} /> : <ArrowRight size={16} />}
                   {loading ? 'Scraping...' : 'Search'}
                 </button>
+                <button
+                  type="button"
+                  onClick={handleReset}
+                  className="border border-line/30 px-6 py-2 text-sm font-medium hover:bg-ink/5 transition-all active:scale-95 flex items-center gap-2"
+                >
+                  <X size={14} className="opacity-50" />
+                  Clear All
+                </button>
               </div>
 
               {/* Advanced Intent Options */}
@@ -673,6 +691,19 @@ export default function App() {
                       <option value="recommendation">Recommendations / ISO</option>
                       <option value="hiring">Hiring / Wanted</option>
                       <option value="pain">Pain Points / Problems</option>
+                    </select>
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="col-header">Date Range</label>
+                    <select
+                      value={dateRange}
+                      onChange={(e) => setDateRange(e.target.value)}
+                      className="bg-transparent border border-line/30 px-3 py-2 text-sm focus:outline-none focus:border-line w-36"
+                    >
+                      <option value="qdr:d">Past 24 Hours</option>
+                      <option value="qdr:w">Past 7 Days</option>
+                      <option value="qdr:m">Past 30 Days</option>
                     </select>
                   </div>
 

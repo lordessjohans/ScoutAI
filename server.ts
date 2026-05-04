@@ -52,7 +52,7 @@ async function startServer() {
   });
 
   app.post('/api/intent', async (req, res) => {
-    const { keywords, targetAudience, location, intentType, platforms } = req.body;
+    const { keywords, targetAudience, location, intentType, platforms, dateRange } = req.body;
     const apiKey = process.env.SERPER_API_KEY;
 
     if (!apiKey) {
@@ -81,10 +81,20 @@ async function startServer() {
       
       console.log('Executing Intent Search:', query);
 
-      const response = await axios.post('https://google.serper.dev/search', {
+      const payload: any = {
         q: query,
         num: 20
-      }, {
+      };
+
+      if (dateRange && dateRange !== 'all') {
+        // e.g., dateRange = 'qdr:d' (past day), 'qdr:w' (past week), 'qdr:m' (past month)
+        payload.tbs = dateRange;
+      } else {
+        // default to past 30 days per user request if all is somehow passed, or just normally pass qdr:m
+        payload.tbs = 'qdr:m';
+      }
+
+      const response = await axios.post('https://google.serper.dev/search', payload, {
         headers: {
           'X-API-KEY': apiKey,
           'Content-Type': 'application/json'
