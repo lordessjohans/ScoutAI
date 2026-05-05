@@ -72,7 +72,7 @@ async function startServer() {
       }
 
       // Determine platforms
-      let platformQuery = '(site:reddit.com OR site:facebook.com OR site:quora.com OR site:nextdoor.com)';
+      let platformQuery = '(site:reddit.com OR site:facebook.com OR site:quora.com OR site:nextdoor.com OR site:craigslist.org OR site:lowes.com OR site:menards.com OR site:houzz.com)';
       if (platforms && platforms.length > 0) {
         platformQuery = `(${platforms.map((p: string) => `site:${p}`).join(' OR ')})`;
       }

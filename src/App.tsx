@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, Download, Loader2, MapPin, Filter, Database, ArrowRight, ChevronUp, ChevronDown, Users, Globe, MessageSquare, X, Mail, Send, AlertCircle, Bookmark, BookmarkCheck, LogOut, LogIn, LayoutDashboard, Trash2 } from 'lucide-react';
+import { Search, Download, Loader2, MapPin, Filter, Database, ArrowRight, ChevronUp, ChevronDown, Users, Globe, MessageSquare, X, Mail, Send, AlertCircle, Bookmark, BookmarkCheck, LogOut, LogIn, LayoutDashboard, Trash2, Calendar, FileSpreadsheet, Bot } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleGenAI, Type } from "@google/genai";
 import axios from 'axios';
@@ -41,6 +41,17 @@ interface SavedIntent extends IntentLead {
   createdAt: any;
 }
 
+interface Automation {
+  id: string;
+  keywords: string;
+  targetAudience: string;
+  location: string;
+  intentType: string;
+  emails: string;
+  status: 'active' | 'paused';
+  createdAt: string;
+}
+
 export default function App() {
   const [keywords, setKeywords] = useState('');
   const [targetAudience, setTargetAudience] = useState('');
@@ -51,7 +62,7 @@ export default function App() {
   const [intentResults, setIntentResults] = useState<IntentLead[]>([]);
   const [intentSummary, setIntentSummary] = useState<{ sentiment: string; painPoints: string[] } | null>(null);
   const [mode, setMode] = useState<'business' | 'intent'>('business');
-  const [activeTab, setActiveTab] = useState<'scout' | 'crm'>('scout');
+  const [activeTab, setActiveTab] = useState<'scout' | 'crm' | 'automations'>('scout');
   const [error, setError] = useState<string | null>(null);
   const [selectedIntent, setSelectedIntent] = useState<IntentLead | null>(null);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
@@ -67,6 +78,11 @@ export default function App() {
   const [isDeployingCampaign, setIsDeployingCampaign] = useState(false);
   const [campaignSuccess, setCampaignSuccess] = useState(false);
 
+  const [automations, setAutomations] = useState<Automation[]>([]);
+  const [isAutomationModalOpen, setIsAutomationModalOpen] = useState(false);
+  const [automationEmails, setAutomationEmails] = useState('');
+  const [isScheduling, setIsScheduling] = useState(false);
+
   // Template State
   const [templatePurpose, setTemplatePurpose] = useState<'Introduction' | 'Offering Help' | 'Direct Pitch'>('Introduction');
   const [templateTone, setTemplateTone] = useState<'Professional' | 'Casual' | 'Empathetic' | 'Direct'>('Professional');
@@ -74,7 +90,7 @@ export default function App() {
   // Intent Search State
   const [intentType, setIntentType] = useState('recommendation');
   const [dateRange, setDateRange] = useState('qdr:m');
-  const [platforms, setPlatforms] = useState<string[]>(['reddit.com', 'facebook.com', 'quora.com', 'nextdoor.com']);
+  const [platforms, setPlatforms] = useState<string[]>(['reddit.com', 'facebook.com', 'quora.com', 'nextdoor.com', 'craigslist.org']);
 
   // CRM State
   const [user, setUser] = useState<User | null>(null);
@@ -451,31 +467,55 @@ export default function App() {
   };
 
   const exportToCSV = () => {
-    if (results.length === 0) return;
+    if (mode === 'business') {
+      if (results.length === 0) return;
+      const headers = ['Name', 'Address', 'Phone', 'Email', 'Website', 'Rating', 'Reviews'];
+      const csvContent = [
+        headers.join(','),
+        ...results.map(lead => [
+          `"${lead.name}"`,
+          `"${lead.address}"`,
+          `"${lead.phone}"`,
+          `"${lead.email}"`,
+          `"${lead.website}"`,
+          lead.rating,
+          lead.reviews
+        ].join(','))
+      ].join('\n');
 
-    const headers = ['Name', 'Address', 'Phone', 'Email', 'Website', 'Rating', 'Reviews'];
-    const csvContent = [
-      headers.join(','),
-      ...results.map(lead => [
-        `"${lead.name}"`,
-        `"${lead.address}"`,
-        `"${lead.phone}"`,
-        `"${lead.email}"`,
-        `"${lead.website}"`,
-        lead.rating,
-        lead.reviews
-      ].join(','))
-    ].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `business_leads_${keywords.replace(/\s+/g, '_')}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else {
+      if (intentResults.length === 0) return;
+      const headers = ['Title', 'Source', 'Snippet', 'Link', 'Date'];
+      const csvContent = [
+        headers.join(','),
+        ...intentResults.map(lead => [
+          `"${lead.title.replace(/"/g, '""')}"`,
+          `"${lead.source}"`,
+          `"${lead.snippet.replace(/"/g, '""')}"`,
+          `"${lead.link}"`,
+          `"${lead.date}"`
+        ].join(','))
+      ].join('\n');
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `leads_${keywords.replace(/\s+/g, '_')}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `intent_leads_${keywords.replace(/\s+/g, '_')}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
   };
 
   const handleContactSubmit = (e: React.FormEvent) => {
@@ -504,6 +544,40 @@ export default function App() {
       setContactError(null);
       // In a real app, you'd send this to your backend
     }, 1500);
+  };
+
+  const handleScheduleAutomation = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!automationEmails) return;
+
+    setIsScheduling(true);
+
+    setTimeout(() => {
+      const newAutomation: Automation = {
+        id: Math.random().toString(36).substr(2, 9),
+        keywords,
+        targetAudience,
+        location,
+        intentType,
+        emails: automationEmails,
+        status: 'active',
+        createdAt: new Date().toISOString()
+      };
+
+      setAutomations([...automations, newAutomation]);
+      setIsScheduling(false);
+      setIsAutomationModalOpen(false);
+      setAutomationEmails('');
+      setActiveTab('automations');
+    }, 1500);
+  };
+
+  const deleteAutomation = (id: string) => {
+    setAutomations(automations.filter(a => a.id !== id));
+  };
+
+  const toggleAutomation = (id: string) => {
+    setAutomations(automations.map(a => a.id === id ? { ...a, status: a.status === 'active' ? 'paused' : 'active' } : a));
   };
 
   const handleLaunchCampaign = (e: React.FormEvent) => {
@@ -552,6 +626,12 @@ export default function App() {
                 className={`px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition-colors rounded-sm flex items-center gap-2 ${activeTab === 'crm' ? 'bg-ink text-bg shadow-sm' : 'hover:bg-ink/10'}`}
               >
                 <LayoutDashboard size={14} /> CRM
+              </button>
+              <button
+                onClick={() => setActiveTab('automations')}
+                className={`px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition-colors rounded-sm flex items-center gap-2 ${activeTab === 'automations' ? 'bg-ink text-bg shadow-sm' : 'hover:bg-ink/10'}`}
+              >
+                <Bot size={14} /> Automations
               </button>
             </div>
 
@@ -672,6 +752,16 @@ export default function App() {
                   <X size={14} className="opacity-50" />
                   Clear All
                 </button>
+                {mode === 'intent' && (
+                  <button
+                    type="button"
+                    onClick={() => setIsAutomationModalOpen(true)}
+                    className="border border-line/30 px-6 py-2 text-sm font-medium hover:bg-ink/5 transition-all active:scale-95 flex items-center gap-2 border-dashed border-ink"
+                  >
+                    <Calendar size={14} />
+                    Automate Daily Report
+                  </button>
+                )}
               </div>
 
               {/* Advanced Intent Options */}
@@ -709,12 +799,16 @@ export default function App() {
 
                   <div className="flex flex-col gap-1">
                     <label className="col-header">Platforms</label>
-                    <div className="flex items-center gap-2 border border-line/30 p-1.5">
+                    <div className="flex flex-wrap items-center gap-2 border border-line/30 p-1.5">
                       {[
                         { id: 'reddit.com', label: 'Reddit' },
                         { id: 'facebook.com', label: 'Facebook' },
                         { id: 'quora.com', label: 'Quora' },
-                        { id: 'nextdoor.com', label: 'Nextdoor' }
+                        { id: 'nextdoor.com', label: 'Nextdoor' },
+                        { id: 'craigslist.org', label: 'Craigslist' },
+                        { id: 'lowes.com', label: 'Lowe\'s' },
+                        { id: 'menards.com', label: 'Menards' },
+                        { id: 'houzz.com', label: 'Houzz' }
                       ].map(platform => (
                         <label key={platform.id} className="flex items-center gap-1 text-xs cursor-pointer px-2">
                           <input
@@ -869,6 +963,78 @@ export default function App() {
                 </div>
               )}
             </motion.div>
+          ) : activeTab === 'automations' ? (
+            <motion.div
+              key="automations"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-6"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold tracking-tight">Active Automations</h2>
+                  <p className="text-sm opacity-60">Daily intent scout routines & scheduled spreadsheet deliveries.</p>
+                </div>
+                {automations.length > 0 && (
+                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-green-600 bg-green-50 px-3 py-1 rounded-sm border border-green-200">
+                    <bot size={14} /> Agent Running
+                  </div>
+                )}
+              </div>
+
+              {automations.length === 0 ? (
+                <div className="text-center p-12 border border-dashed border-line/30 rounded-lg">
+                  <FileSpreadsheet size={32} className="mx-auto mb-4 opacity-20" />
+                  <h2 className="text-lg font-bold mb-2">No active automations</h2>
+                  <p className="text-sm opacity-50 max-w-sm mx-auto mb-6">
+                    You haven't scheduled any daily scouts. Go to Scout (Intent Mode) and configure a search query, then click "Automate Daily Report".
+                  </p>
+                  <button onClick={() => {setActiveTab('scout'); setMode('intent');}} className="bg-ink text-bg px-6 py-2 text-xs font-bold uppercase tracking-wider border border-ink">
+                    Create New Routine
+                  </button>
+                </div>
+              ) : (
+                <div className="grid gap-4">
+                  {automations.map(auto => (
+                    <div key={auto.id} className="border border-line flex flex-col md:flex-row md:items-center justify-between p-5 hover:bg-ink/[0.02]">
+                      <div className="space-y-2 mb-4 md:mb-0">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2 h-2 rounded-full ${auto.status === 'active' ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+                          <h3 className="font-bold uppercase tracking-widest text-sm">{auto.keywords}</h3>
+                          <span className="text-[10px] px-2 py-0.5 bg-ink text-bg rounded-sm font-mono opacity-80">
+                            {auto.intentType}
+                          </span>
+                        </div>
+                        <p className="text-xs opacity-60 flex items-center gap-2">
+                          <MapPin size={12} /> {auto.location || 'Anywhere'} | <Users size={12} /> {auto.targetAudience || 'General Audience'}
+                        </p>
+                        <p className="text-[10px] opacity-50 flex items-center gap-1 font-mono mt-2">
+                          <Mail size={10} /> Delivering CSV daily to: {auto.emails}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => toggleAutomation(auto.id)}
+                          className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest border border-line hover:bg-ink/5"
+                        >
+                          {auto.status === 'active' ? 'Pause' : 'Resume'}
+                        </button>
+                        <button
+                          onClick={() => deleteAutomation(auto.id)}
+                          className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest border border-red-200 text-red-600 hover:bg-red-50"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  <div className="p-4 bg-ink/5 border border-line/20 rounded-sm text-xs mt-4">
+                    <strong className="uppercase font-bold tracking-widest">Notice:</strong> Data synchronization occurs automatically at 08:00 UTC. The LeadScout AI agent will scrape new SERP listings created in the past 24 hours, process them through the intent extraction engine, and deliver a formatted CSV spreadsheet report to the recipient emails.
+                  </div>
+                </div>
+              )}
+            </motion.div>
           ) : loading ? (
             <motion.div
               key="loading"
@@ -902,15 +1068,13 @@ export default function App() {
                   <div className="h-4 w-[1px] bg-line/20" />
                   <span className="col-header">Query: {keywords}</span>
                 </div>
-                {mode === 'business' && (
-                  <button
-                    onClick={exportToCSV}
-                    className="flex items-center gap-2 text-[11px] uppercase font-bold tracking-wider hover:underline"
-                  >
-                    <Download size={14} />
-                    Export CSV
-                  </button>
-                )}
+                <button
+                  onClick={exportToCSV}
+                  className="flex items-center gap-2 text-[11px] uppercase font-bold tracking-wider hover:underline"
+                >
+                  <Download size={14} />
+                  Export CSV
+                </button>
               </div>
 
               {mode === 'business' ? (
@@ -1144,6 +1308,80 @@ export default function App() {
           )}
         </AnimatePresence>
       </main>
+
+      {/* Automation Modal */}
+      <AnimatePresence>
+        {isAutomationModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsAutomationModalOpen(false)}
+              className="absolute inset-0 bg-ink/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative bg-bg border border-line w-full max-w-md shadow-2xl overflow-hidden"
+            >
+              <div className="p-6 border-b border-line flex items-center justify-between bg-ink/5">
+                <div className="flex items-center gap-3">
+                  <Calendar size={18} />
+                  <h2 className="text-sm uppercase font-bold tracking-widest">Automate Daily Delivery</h2>
+                </div>
+                <button 
+                  onClick={() => setIsAutomationModalOpen(false)}
+                  className="hover:rotate-90 transition-transform"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <form onSubmit={handleScheduleAutomation} className="p-6 space-y-5">
+                <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs leading-relaxed rounded-sm">
+                  LeadScout will run this Intent query once every 24 hours (08:00 UTC) and email a compiled CSV spreadsheet report containing the freshest leads.
+                </div>
+
+                <div className="space-y-2 p-3 border border-dashed border-line/30">
+                  <p className="text-[10px] uppercase font-bold tracking-widest opacity-40">Routine Overview</p>
+                  <div className="text-xs">
+                    <span className="opacity-60">Keywords:</span> <strong>{keywords || 'None'}</strong>
+                  </div>
+                  <div className="text-xs">
+                    <span className="opacity-60">Intent:</span> <strong>{intentType}</strong>
+                  </div>
+                  <div className="text-xs">
+                    <span className="opacity-60">Location:</span> <strong>{location || 'Anywhere'}</strong>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-bold opacity-40">Recipient Emails (comma separated)</label>
+                  <input
+                    required
+                    type="text"
+                    value={automationEmails}
+                    onChange={(e) => setAutomationEmails(e.target.value)}
+                    placeholder="team@company.com, sales@company.com"
+                    className="w-full bg-transparent border border-line/30 p-3 text-sm focus:outline-none focus:border-line"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isScheduling || !keywords}
+                  className="w-full bg-ink text-bg py-3 text-sm font-bold uppercase tracking-widest hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2 transition-all"
+                >
+                  {isScheduling ? <Loader2 className="animate-spin" size={16} /> : <FileSpreadsheet size={16} />}
+                  {isScheduling ? 'Scheduling...' : 'Schedule Daily Spreadsheet Delivery'}
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Contact Modal */}
       <AnimatePresence>
